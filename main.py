@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 import requests
-import json
 import time
 import sys
 import duckdb
-import tempfile
 import os
 from typing import Optional, Dict, Any
 
@@ -140,7 +138,7 @@ def create_tables(conn: duckdb.DuckDBPyConnection):
 
 
 def main():
-    identity = "4kL5QD8ir5CvkuvCUnQhBDuWhq3Xfnz3UfQLt4CqPQZQ"
+    (identity, ) = sys.argv[1:]
     # Earliest epoch we can get from Trilium API is 600 (checked 2025-08-01)
     start_epoch = 600
     end_epoch = get_current_solana_epoch()
@@ -191,7 +189,7 @@ def main():
         else:
             print(">>> No new records to insert", file=sys.stderr)
 
-        print(">>> Generating CSV", file=sys.stderr)
+        print(f">>> Generating CSV to '{identity}.csv'", file=sys.stderr)
         # HACK: mix and match with string interpolation, otherwise `duckdb.duckdb.ParserException`
         conn.execute(f"""
             COPY (SELECT * FROM rewards where identity = ? ORDER BY epoch ASC)
