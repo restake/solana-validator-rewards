@@ -48,20 +48,23 @@ def get_epoch(identity: str, epoch: int) -> Optional[Dict[Any, Any]]:
         # Find the validator with matching identity
         for validator in data:
             if validator.get("identity_pubkey") == identity:
+                commission_bps = (validator.get("commission", 0) or 0) * 100
+                mev_commission_bps = validator.get("mev_commission", 0) or 0
+
                 # Calculate revenue components (rounded to 9 decimals)
-                rewards = validator.get("rewards", 0)
-                mev_to_validator = validator.get("mev_to_validator", 0)
-                total_inflation_reward = validator.get("total_inflation_reward", 0)
-                vote_cost = validator.get("vote_cost", 0)
+                rewards = validator.get("rewards", 0) or 0
+                mev_to_validator = validator.get("mev_to_validator", 0) or 0
+                total_inflation_reward = validator.get("total_inflation_reward", 0) or 0
+                vote_cost = validator.get("vote_cost", 0) or 0
                 
                 block_rewards = round_9(rewards)
                 mev_to_validator_rounded = round_9(mev_to_validator)
-                inflation_rewards = round_9(total_inflation_reward)
-                
-                base_revenue = round_9(rewards + total_inflation_reward)
-                total_revenue = round_9(rewards + mev_to_validator + total_inflation_reward)
+                inflation_rewards = round_9(total_inflation_reward * commission_bps / 10000)
+
+                base_revenue = round_9(rewards + inflation_rewards)
+                total_revenue = round_9(rewards + mev_to_validator + inflation_rewards)
                 vote_cost_rounded = round_9(vote_cost)
-                net_earnings = round_9(rewards + mev_to_validator + total_inflation_reward - vote_cost)
+                net_earnings = round_9(rewards + mev_to_validator + inflation_rewards - vote_cost)
                 
                 return {
                     "epoch": epoch,
@@ -79,8 +82,8 @@ def get_epoch(identity: str, epoch: int) -> Optional[Dict[Any, Any]]:
                     "skip_rate": validator.get("skip_rate", 0),
                     "votes_cast": validator.get("votes_cast", 0),
                     "stake_percentage": validator.get("stake_percentage", 0),
-                    "commission_bps": (validator.get("commission", 0) or 0) * 100,
-                    "mev_commission_bps": validator.get("mev_commission", 0) or 0
+                    "commission_bps": commission_bps,
+                    "mev_commission_bps": mev_commission_bps,
                 }
         
         return None
