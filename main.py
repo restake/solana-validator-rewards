@@ -192,10 +192,11 @@ def main():
             print(">>> No new records to insert", file=sys.stderr)
 
         print(">>> Generating CSV", file=sys.stderr)
-        conn.execute("""
-            COPY (SELECT * FROM rewards ORDER BY epoch ASC) 
-            TO 'output.csv' (HEADER, DELIMITER ',')
-        """)
+        # HACK: mix and match with string interpolation, otherwise `duckdb.duckdb.ParserException`
+        conn.execute(f"""
+            COPY (SELECT * FROM rewards where identity = ? ORDER BY epoch ASC)
+            TO '{identity}.csv' (HEADER, DELIMITER ',')
+        """, [identity])
             
     finally:
         conn.close()
