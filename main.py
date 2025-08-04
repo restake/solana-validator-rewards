@@ -29,7 +29,7 @@ def get_current_solana_epoch() -> Optional[int]:
             headers={"Content-Type": "application/json"},
             timeout=10
         )
-        
+
         if response.status_code == 200:
             data = response.json()
             current_epoch = data.get("result", {}).get("epoch")
@@ -39,7 +39,7 @@ def get_current_solana_epoch() -> Optional[int]:
 
     except requests.RequestException as e:
         print(f"Error getting current epoch from Solana RPC: {e}", file=sys.stderr)
-    
+
     return None
 
 def get_epoch(identity: str, epoch: int) -> Optional[Dict[Any, Any]]:
@@ -62,7 +62,7 @@ def get_epoch(identity: str, epoch: int) -> Optional[Dict[Any, Any]]:
                 mev_to_validator = validator.get("mev_to_validator", 0) or 0
                 validator_inflation_rewards = validator.get("validator_inflation_reward", 0) or 0
                 vote_cost = validator.get("vote_cost", 0) or 0
-                
+
                 leader_rewards_lamports = sol_to_lamports(leader_rewards)
                 mev_to_validator_lamports = sol_to_lamports(mev_to_validator)
                 inflation_rewards_lamports = sol_to_lamports(validator_inflation_rewards)
@@ -71,7 +71,7 @@ def get_epoch(identity: str, epoch: int) -> Optional[Dict[Any, Any]]:
                 base_revenue_lamports = leader_rewards_lamports + inflation_rewards_lamports
                 total_revenue_lamports = base_revenue_lamports + mev_to_validator_lamports
                 net_earnings_lamports = total_revenue_lamports - vote_cost_lamports
-                
+
                 return {
                     "epoch": epoch,
                     "name": validator.get("name", ""),
@@ -91,9 +91,9 @@ def get_epoch(identity: str, epoch: int) -> Optional[Dict[Any, Any]]:
                     "commission_bps": commission_bps,
                     "mev_commission_bps": mev_commission_bps,
                 }
-        
+
         return None
-        
+
     except requests.RequestException as e:
         print(f"Error fetching epoch {epoch}: {e}", file=sys.stderr)
         return None
@@ -104,8 +104,8 @@ def check_epoch_exists(conn: duckdb.DuckDBPyConnection, identity: str, epoch: in
     try:
         result = conn.execute("""
             SELECT 1 FROM (
-                SELECT epoch, identity FROM rewards 
-                UNION 
+                SELECT epoch, identity FROM rewards
+                UNION
                 SELECT epoch, identity FROM missing_rewards
             ) WHERE identity = ? AND epoch = ? LIMIT 1
         """, [identity, epoch]).fetchone()
@@ -117,30 +117,34 @@ def check_epoch_exists(conn: duckdb.DuckDBPyConnection, identity: str, epoch: in
 def create_tables(conn: duckdb.DuckDBPyConnection):
     conn.execute("""
         CREATE TABLE IF NOT EXISTS rewards (
-            epoch BIGINT, 
-            name VARCHAR, 
-            identity VARCHAR, 
-            activated_stake BIGINT, 
-            block_rewards DOUBLE, 
-            mev_to_validator DOUBLE, 
-            inflation_rewards DOUBLE, 
-            base_revenue DOUBLE, 
-            total_revenue DOUBLE, 
-            vote_cost DOUBLE, 
-            net_earnings DOUBLE, 
-            leader_slots BIGINT, 
-            skip_rate DOUBLE, 
-            votes_cast BIGINT, 
-            stake_percentage DOUBLE, 
-            commission_bps BIGINT, 
-            mev_commission_bps BIGINT
+            epoch BIGINT,
+            name VARCHAR,
+            identity VARCHAR,
+            activated_stake BIGINT,
+            block_rewards DOUBLE,
+            mev_to_validator DOUBLE,
+            inflation_rewards DOUBLE,
+            base_revenue DOUBLE,
+            total_revenue DOUBLE,
+            vote_cost DOUBLE,
+            net_earnings DOUBLE,
+            leader_slots BIGINT,
+            skip_rate DOUBLE,
+            votes_cast BIGINT,
+            stake_percentage DOUBLE,
+            commission_bps BIGINT,
+            mev_commission_bps BIGINT,
+            PRIMARY KEY (epoch, identity),
+            UNIQUE (epoch, identity)
         )
     """)
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS missing_rewards (
             epoch BIGINT,
-            identity VARCHAR
+            identity VARCHAR,
+            PRIMARY KEY (epoch, identity),
+            UNIQUE (epoch, identity)
         );
     """)
 
@@ -155,20 +159,20 @@ def main():
 
     # We cannot query currently ongoing epoch
     end_epoch -= 1
-    
+
     conn = duckdb.connect("data.duckdb")
-    
+
     try:
         create_tables(conn)
-        
+
         new_records = []
         for epoch in range(start_epoch, end_epoch + 1):
             if check_epoch_exists(conn, identity, epoch):
                 continue
-            
+
             print(f">>> Fetching epoch {epoch}", file=sys.stderr)
             epoch_data = get_epoch(identity, epoch)
-            
+
             if epoch_data:
                 new_records.append(epoch_data)
             else:
@@ -177,10 +181,10 @@ def main():
                     "INSERT INTO missing_rewards (epoch, identity) VALUES (?, ?)",
                     [epoch, identity],
                 )
-            
+
             # Be nice to Trilium's API
             time.sleep(1)
-        
+
         if new_records:
             conn.executemany("""
                 INSERT INTO rewards VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -203,7 +207,7 @@ def main():
             COPY (SELECT * FROM rewards where identity = ? ORDER BY epoch ASC)
             TO '{identity}.csv' (HEADER, DELIMITER ',')
         """, [identity])
-            
+
     finally:
         conn.close()
 
