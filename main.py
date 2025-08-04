@@ -6,6 +6,14 @@ import duckdb
 import os
 from typing import Optional, Dict, Any
 
+LAMPORTS_PER_SOL = 1_000_000_000
+
+def sol_to_lamports(sol_amount: float) -> int:
+    return int(round(sol_amount * LAMPORTS_PER_SOL))
+
+def lamports_to_sol(lamports: int) -> float:
+    return lamports / LAMPORTS_PER_SOL
+
 def round_9(val):
     return round(val * 1000000000) / 1000000000
 
@@ -50,31 +58,32 @@ def get_epoch(identity: str, epoch: int) -> Optional[Dict[Any, Any]]:
                 mev_commission_bps = validator.get("mev_commission", 0) or 0
 
                 # Calculate revenue components (rounded to 9 decimals)
-                rewards = validator.get("rewards", 0) or 0
+                leader_rewards = validator.get("rewards", 0) or 0
                 mev_to_validator = validator.get("mev_to_validator", 0) or 0
                 validator_inflation_rewards = validator.get("validator_inflation_reward", 0) or 0
                 vote_cost = validator.get("vote_cost", 0) or 0
                 
-                block_rewards = round_9(rewards)
-                mev_to_validator_rounded = round_9(mev_to_validator)
+                leader_rewards_lamports = sol_to_lamports(leader_rewards)
+                mev_to_validator_lamports = sol_to_lamports(mev_to_validator)
+                inflation_rewards_lamports = sol_to_lamports(validator_inflation_rewards)
+                vote_cost_lamports = sol_to_lamports(vote_cost)
 
-                base_revenue = round_9(rewards + validator_inflation_rewards)
-                total_revenue = round_9(rewards + mev_to_validator + validator_inflation_rewards)
-                vote_cost_rounded = round_9(vote_cost)
-                net_earnings = round_9(rewards + mev_to_validator + validator_inflation_rewards - vote_cost)
+                base_revenue_lamports = leader_rewards_lamports + inflation_rewards_lamports
+                total_revenue_lamports = base_revenue_lamports + mev_to_validator_lamports
+                net_earnings_lamports = total_revenue_lamports - vote_cost_lamports
                 
                 return {
                     "epoch": epoch,
                     "name": validator.get("name", ""),
                     "identity": validator.get("identity_pubkey", ""),
                     "activated_stake": validator.get("activated_stake", 0) or 0,
-                    "block_rewards": block_rewards,
-                    "mev_to_validator": mev_to_validator_rounded,
-                    "inflation_rewards": validator_inflation_rewards,
-                    "base_revenue": base_revenue,
-                    "total_revenue": total_revenue,
-                    "vote_cost": vote_cost_rounded,
-                    "net_earnings": net_earnings,
+                    "block_rewards": lamports_to_sol(leader_rewards_lamports),
+                    "mev_to_validator": lamports_to_sol(mev_to_validator_lamports),
+                    "inflation_rewards": lamports_to_sol(inflation_rewards_lamports),
+                    "base_revenue": lamports_to_sol(base_revenue_lamports),
+                    "total_revenue": lamports_to_sol(total_revenue_lamports),
+                    "vote_cost": lamports_to_sol(vote_cost_lamports),
+                    "net_earnings": lamports_to_sol(net_earnings_lamports),
                     "leader_slots": validator.get("leader_slots", 0),
                     "skip_rate": validator.get("skip_rate", 0),
                     "votes_cast": validator.get("votes_cast", 0),
