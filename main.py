@@ -52,17 +52,16 @@ def get_epoch(identity: str, epoch: int) -> Optional[Dict[Any, Any]]:
                 # Calculate revenue components (rounded to 9 decimals)
                 rewards = validator.get("rewards", 0) or 0
                 mev_to_validator = validator.get("mev_to_validator", 0) or 0
-                total_inflation_reward = validator.get("total_inflation_reward", 0) or 0
+                validator_inflation_rewards = validator.get("validator_inflation_reward", 0) or 0
                 vote_cost = validator.get("vote_cost", 0) or 0
                 
                 block_rewards = round_9(rewards)
                 mev_to_validator_rounded = round_9(mev_to_validator)
-                inflation_rewards = round_9(total_inflation_reward * commission_bps / 10000)
 
-                base_revenue = round_9(rewards + inflation_rewards)
-                total_revenue = round_9(rewards + mev_to_validator + inflation_rewards)
+                base_revenue = round_9(rewards + validator_inflation_rewards)
+                total_revenue = round_9(rewards + mev_to_validator + validator_inflation_rewards)
                 vote_cost_rounded = round_9(vote_cost)
-                net_earnings = round_9(rewards + mev_to_validator + inflation_rewards - vote_cost)
+                net_earnings = round_9(rewards + mev_to_validator + validator_inflation_rewards - vote_cost)
                 
                 return {
                     "epoch": epoch,
@@ -71,7 +70,7 @@ def get_epoch(identity: str, epoch: int) -> Optional[Dict[Any, Any]]:
                     "activated_stake": validator.get("activated_stake", 0) or 0,
                     "block_rewards": block_rewards,
                     "mev_to_validator": mev_to_validator_rounded,
-                    "inflation_rewards": inflation_rewards,
+                    "inflation_rewards": validator_inflation_rewards,
                     "base_revenue": base_revenue,
                     "total_revenue": total_revenue,
                     "vote_cost": vote_cost_rounded,
